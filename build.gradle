@@ -8,7 +8,7 @@ buildscript {
   apply from: "${rootDir}/gradle/dependencies.gradle"
 
   repositories {
-    maven { url "http://repo.spring.io/plugins-release" }
+    maven { url "https://repo.spring.io/plugins-release" }
     gradlePluginPortal()
     mavenCentral()
     jcenter()
@@ -41,11 +41,10 @@ allprojects {
 
 subprojects {
   apply plugin: 'com.github.ethankhall.semantic-versioning'
-  apply plugin: 'net.ltgt.errorprone'
+  apply plugin: 'biz.aQute.bnd.builder'
   apply plugin: 'eclipse'
   apply plugin: 'java'
   apply plugin: 'idea'
-  apply plugin: 'osgi'
 
   apply from: "${rootDir}/gradle/publish.gradle"
   apply from: "${rootDir}/gradle/codeQuality.gradle"
@@ -62,7 +61,7 @@ subprojects {
   version.with {
     major = 2 // incompatible API changes
     minor = 7 // backwards-compatible additions
-    patch = 0 // backwards-compatible bug fixes
+    patch = 1 // backwards-compatible bug fixes
     releaseBuild = rootProject.hasProperty('release')
   }
   archivesBaseName = path[1..-1].replaceAll(':', '-').toLowerCase()
@@ -78,7 +77,17 @@ subprojects {
   }
 
   configurations {
+    bundleCompile
     testArtifacts
+  }
+
+  sourceSets {
+    bundle
+  }
+
+  task bundle(type: aQute.bnd.gradle.Bundle) {
+    from sourceSets.bundle.output
+    sourceSet = sourceSets.bundle
   }
 
   tasks.withType(Test) {
@@ -128,9 +137,9 @@ task jacocoRootReport(type: JacocoReport, group: 'Coverage reports') {
   description = 'Generates an aggregate report from all subprojects'
   dependsOn publishedProjects.test, jacocoMerge
 
-  additionalSourceDirs = files(publishedProjects.sourceSets.main.allSource.srcDirs)
-  sourceDirectories = files(publishedProjects.sourceSets.main.allSource.srcDirs)
-  classDirectories = files(publishedProjects.sourceSets.main.output)
+  additionalSourceDirs.from = files(publishedProjects.sourceSets.main.allSource.srcDirs)
+  sourceDirectories.from = files(publishedProjects.sourceSets.main.allSource.srcDirs)
+  classDirectories.from = files(publishedProjects.sourceSets.main.output)
   executionData jacocoMerge.destinationFile
 
   reports {

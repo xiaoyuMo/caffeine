@@ -44,7 +44,10 @@ In addition, Caffeine offers the following extensions:
  * [Simulation][simulator]
 
 Use Caffeine in a community provided integration:
+ * [Play Framework][play]: High velocity web framework
+ * [Micronaut][micronaut]: A modern, full-stack framework
  * [Spring Cache][spring]: As of Spring 4.3 & Boot 1.4
+ * [Akka][akka-http]: Build reactive applications easily
  * [Scaffeine][scaffeine]: Scala wrapper for Caffeine
  * [ScalaCache][scala-cache]: Simple caching in Scala
  * [Camel][camel]: Routing and mediation engine
@@ -52,11 +55,13 @@ Use Caffeine in a community provided integration:
  * [Druid][druid]: Real-time analytics
 
 Powering infrastructure near you:
- * [Cassandra][cassandra]:  Manage massive amounts of data, fast
+ * [Dropwizard][dropwizard]: Ops-friendly, high-performance, RESTful APIs
+ * [Cassandra][cassandra]: Manage massive amounts of data, fast
+ * [Accumulo][accumulo]: A sorted, distributed key/value store
  * [Infinispan][infinispan]: Distributed in-memory data grid
- * [Akka][akka-http]: Build reactive applications easily
  * [Ratpack][ratpack]: Lean & powerful HTTP apps
  * [Corfu][corfu]: A cluster consistency platform
+ * [Grails][grails]: Groovy-based web framework
  * [Orbit][orbit]: Virtual actors on the JVM
  * [Finagle][finagle]: Extensible RPC system
  * [Neo4j][neo4j]: Graphs for Everyone
@@ -66,24 +71,25 @@ Powering infrastructure near you:
  * A short look at what Caffeine brings to your applications.
    * [Add a Boost of Caffeine to Your Java][add-a-boost] at [VOXXED][voxxed]
  * An in-depth description of Caffeine's architecture.
-   * [Design of a Modern Cache][modern-cache] ([slides][modern-cache-slides]) at [HighScalability][HighScalability]
- * Caffeine is presented as part of a research paper evaluating its novel eviction policy.
+   * [Design of a Modern Cache: part #1][modern-cache-1], [part #2][modern-cache-2] ([slides][modern-cache-slides]) at [HighScalability][HighScalability]
+ * Caffeine is presented as part of research papers evaluating its novel eviction policy.
    * [TinyLFU: A Highly Efficient Cache Admission Policy][tinylfu] by Gil Einziger, Roy Friedman, Ben Manes
+   * [Adaptive Software Cache Management][adaptive-tinylfu] by Gil Einziger, Ohad Eytan, Roy Friedman, Ben Manes
 
 On the radar,
- * Early discussions with [HBase][hbase], [Solr][solr], and [Play!][play]
- * W-TinyLfu implemented by [go-tinylfu][go-tinylfu], [mango-cache][mango-cache], [transitory][transitory], and [ohc][ohc]
+ * Early discussions with [HBase][hbase] and [Solr][solr]
+ * W-TinyLfu implemented by [go-tinylfu][go-tinylfu], [mango-cache][mango-cache], [transitory][transitory], [ohc][ohc], and [OrientDB][orientdb]
 
 ### Download
 
 Download from [Maven Central][maven] or depend via Gradle:
 
 ```gradle
-compile 'com.github.ben-manes.caffeine:caffeine:2.6.2'
+compile 'com.github.ben-manes.caffeine:caffeine:2.7.0'
 
 // Optional extensions
-compile 'com.github.ben-manes.caffeine:guava:2.6.2'
-compile 'com.github.ben-manes.caffeine:jcache:2.6.2'
+compile 'com.github.ben-manes.caffeine:guava:2.7.0'
+compile 'com.github.ben-manes.caffeine:jcache:2.7.0'
 ```
 
 See the [release notes][releases] for details of the changes.
@@ -112,12 +118,14 @@ Snapshots of the development version are available in
 [snapshots]: https://oss.sonatype.org/content/repositories/snapshots
 [efficiency]: https://github.com/ben-manes/caffeine/wiki/Efficiency
 [tinylfu]: https://dl.acm.org/authorize?N41277
+[adaptive-tinylfu]: https://dl.acm.org/authorize?N675830
 [add-a-boost]: https://www.voxxed.com/blog/2015/12/add-a-boost-of-caffeine-to-your-java
 [voxxed]: https://www.voxxed.com
-[modern-cache]: http://highscalability.com/blog/2016/1/25/design-of-a-modern-cache.html
+[modern-cache-1]: http://highscalability.com/blog/2016/1/25/design-of-a-modern-cache.html
+[modern-cache-2]: http://highscalability.com/blog/2019/2/25/design-of-a-modern-cachepart-deux.html
 [modern-cache-slides]: https://docs.google.com/presentation/d/1NlDxyXsUG1qlVHMl4vsUUBQfAJ2c2NsFPNPr2qymIBs
 [highscalability]: http://highscalability.com
-[spring]: http://docs.spring.io/spring/docs/current/spring-framework-reference/html/cache.html#cache-store-configuration-caffeine
+[spring]: https://docs.spring.io/spring/docs/current/spring-framework-reference/integration.html#cache-store-configuration-caffeine
 [scala-cache]: https://github.com/cb372/scalacache
 [scaffeine]: https://github.com/blemale/scaffeine
 [hbase]: https://issues.apache.org/jira/browse/HBASE-15560
@@ -137,4 +145,9 @@ Snapshots of the development version are available in
 [camel]: https://github.com/apache/camel/blob/master/components/camel-caffeine/src/main/docs/caffeine-cache-component.adoc
 [corfu]: https://github.com/CorfuDB/CorfuDB
 [akka-http]: https://doc.akka.io/docs/akka-http/current/common/caching.html
-[play]: https://github.com/playframework/playframework/pull/8025
+[micronaut]: https://docs.micronaut.io/latest/guide/index.html#caching
+[play]: https://www.playframework.com/documentation/latest/JavaCache
+[accumulo]: https://accumulo.apache.org
+[dropwizard]: https://www.dropwizard.io
+[orientdb]: https://orientdb.com
+[grails]: https://grails.org

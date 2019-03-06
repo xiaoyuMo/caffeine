@@ -23,38 +23,35 @@ import static com.google.common.base.Preconditions.checkNotNull;
  *
  * @author ben.manes@gmail.com (Ben Manes)
  */
-interface HillClimber {
+public interface HillClimber {
 
   /**
-   * Records that an access occurred.
-   *
-   * @param key   the key accessed
-   */
-  default void doAlways(long key) {};
-
-  /**
-   * Records that a hit occurred.
-   *
-   * @param key   the key accessed
-   * @param queue the queue the entry was found in
-   */
-  void onHit(long key, QueueType queue);
-
-  /**
-   * Records that a miss occurred.
+   * Records that a hit occurred with a full cache.
    *
    * @param key the key accessed
+   * @param queue the queue the entry was found in
+   * @param isFull if the cache is fully populated
    */
-  void onMiss(long key);
+  void onHit(long key, QueueType queue, boolean isFull);
+
+  /**
+   * Records that a miss occurred with a full cache.
+   *
+   * @param key the key accessed
+   * @param isFull if the cache is fully populated and had to evict
+   */
+  void onMiss(long key, boolean isFull);
 
   /**
    * Determines how to adapt the segment sizes.
    *
-   * @param windowSize    the current window size
+   * @param windowSize the current window size
+   * @param probationSize the current probation size
    * @param protectedSize the current protected size
+   * @param isFull if the cache is fully populated
    * @return the adjustment to the segments
    */
-  Adaptation adapt(int windowSize, int protectedSize);
+  Adaptation adapt(double windowSize, double probationSize, double protectedSize, boolean isFull);
 
   enum QueueType {
     WINDOW, PROBATION, PROTECTED
@@ -62,19 +59,53 @@ interface HillClimber {
 
   /** The adaptation type and its magnitude. */
   final class Adaptation {
-    enum Type {
+    public enum Type {
       HOLD, INCREASE_WINDOW, DECREASE_WINDOW
     }
 
-    static final Adaptation HOLD = new Adaptation(Type.HOLD, 0);
+    private static final Adaptation HOLD = new Adaptation(0, Type.HOLD);
 
-    final int amount;
-    final Type type;
+    public final double amount;
+    public final Type type;
 
-    Adaptation(Type type, int amount) {
+    private Adaptation(double amount, Type type) {
+      checkArgument(amount >= 0, "Step size %s must be positive", amount);
       this.type = checkNotNull(type);
-      checkArgument(amount >= 0);
       this.amount = amount;
+    }
+
+    /** Returns the adaption based on the amount, where a negative value decreases the window. */
+    public static Adaptation adaptBy(double amount) {
+      if (amount == 0) {
+        return hold();
+      } else if (amount < 0) {
+        return decreaseWindow(Math.abs(amount));
+      } else {
+        return increaseWindow(amount);
+      }
+    }
+    public static int roundToInt(double amount) {
+      return (amount < 0) ? (int) Math.floor(amount) : (int) Math.ceil(amount);
+    }
+
+    public static Adaptation hold() {
+      return HOLD;
+    }
+    public static Adaptation increaseWindow(double amount) {
+      return new Adaptation(amount, Type.INCREASE_WINDOW);
+    }
+    public static Adaptation decreaseWindow(double amount) {
+      return new Adaptation(amount, Type.DECREASE_WINDOW);
+    }
+
+    @Override
+    public String toString() {
+      switch (type) {
+        case HOLD: return "0";
+        case INCREASE_WINDOW: return "+" + amount;
+        case DECREASE_WINDOW: return "-" + amount;
+        default: throw new IllegalStateException();
+      }
     }
   }
 }

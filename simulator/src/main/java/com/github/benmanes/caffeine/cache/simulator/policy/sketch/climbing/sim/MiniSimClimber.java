@@ -13,54 +13,73 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.github.benmanes.caffeine.cache.simulator.policy.sketch.climbing;
+package com.github.benmanes.caffeine.cache.simulator.policy.sketch.climbing.sim;
 
 import java.util.List;
 
 import com.github.benmanes.caffeine.cache.simulator.BasicSettings;
 import com.github.benmanes.caffeine.cache.simulator.policy.sketch.WindowTinyLfuPolicy;
 import com.github.benmanes.caffeine.cache.simulator.policy.sketch.WindowTinyLfuPolicy.WindowTinyLfuSettings;
+import com.github.benmanes.caffeine.cache.simulator.policy.sketch.climbing.HillClimber;
+import com.google.common.hash.HashFunction;
 import com.google.common.hash.Hashing;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 
 /**
- * A MinSim version for W-TinyLFU
+ * A MinSim version for W-TinyLFU.
+ * <p>
+ * The algorithm is explained by the authors in
+ * <a href="https://www.usenix.org/system/files/conference/atc17/atc17-waldspurger.pdf">Cache
+ * Modeling and Optimization using Miniature Simulation</a>.
  *
  * @author ohadey@gmail.com (Ohad Eytan)
  */
 @SuppressWarnings("PMD.SuspiciousConstantFieldName")
 public final class MiniSimClimber implements HillClimber {
+  private static final HashFunction hasher = Hashing.murmur3_32(0x7f3a2142);
+
   private final WindowTinyLfuPolicy[] minis;
   private final int cacheSize;
+  private final int period;
   private final int R;
 
-  private final int period;
   private int sample;
   private long[] prevMisses;
   private double prevPercent;
 
   public MiniSimClimber(Config config) {
     MiniSimSettings settings = new MiniSimSettings(config);
-    this.period = settings.minisimPeriod();
-    R = (settings.maximumSize() / 1000) > 100 ? 1000 : settings.maximumSize() / 100;
-    Config myConfig = ConfigFactory.parseString("maximum-size = " + settings.maximumSize() / R);
-    myConfig = myConfig.withFallback(config);
-    WindowTinyLfuSettings wsettings = new WindowTinyLfuSettings(myConfig);
-
+    R = (settings.maximumSize() / 1000) > 100 ? 1000 : (settings.maximumSize() / 100);
+    WindowTinyLfuSettings simulationSettings = new WindowTinyLfuSettings(ConfigFactory
+        .parseString("maximum-size = " + settings.maximumSize() / R)
+        .withFallback(config));
     this.prevPercent = 1 - settings.percentMain().get(0);
     this.cacheSize = settings.maximumSize();
+    this.period = settings.minisimPeriod();
     this.minis = new WindowTinyLfuPolicy[101];
+    this.prevMisses = new long[101];
+
     for (int i = 0; i < minis.length; i++) {
-      minis[i] = new WindowTinyLfuPolicy(1.0 - i / 100.0, wsettings);
+      double percentMain = 1.0 - (i / 100.0);
+      minis[i] = new WindowTinyLfuPolicy(percentMain, simulationSettings);
     }
-    prevMisses = new long[101];
   }
 
   @Override
-  public void doAlways(long key) {
+  public void onHit(long key, QueueType queue, boolean isFull) {
+    onAccess(key);
+  }
+
+  @Override
+  public void onMiss(long key, boolean isFull) {
+    onAccess(key);
+  }
+
+  private void onAccess(long key) {
     sample++;
-    if (Math.floorMod(Hashing.murmur3_32(0x7f3a2142).hashLong(key).asInt(), R) < 1) {
+
+    if (Math.floorMod(hasher.hashLong(key).asInt(), R) < 1) {
       for (WindowTinyLfuPolicy policy : minis) {
         policy.record(key);
       }
@@ -68,50 +87,41 @@ public final class MiniSimClimber implements HillClimber {
   }
 
   @Override
-  public void onHit(long key, QueueType queue) {}
-
-  @Override
-  public void onMiss(long key) {}
-
-  @Override
-  public Adaptation adapt(int windowSize, int protectedSize) {
-    if (sample > period) {
-      long[] periodMisses = new long[101];
-      for (int i = 0; i < minis.length; i++) {
-        periodMisses[i] = minis[i].stats().missCount() - prevMisses[i];
-        prevMisses[i] = minis[i].stats().missCount();
-      }
-      int minIndex = 0;
-      for (int i = 1; i < periodMisses.length; i++) {
-        if (periodMisses[i] < periodMisses[minIndex]) {
-          minIndex = i;
-        }
-      }
-
-      double oldPercent = prevPercent;
-      double newPercent = prevPercent = minIndex < 80 ? minIndex / 100.0 : 0.8;
-
-      sample = 0;
-      if (newPercent > oldPercent) {
-        return new Adaptation(Adaptation.Type.INCREASE_WINDOW, (int) ((newPercent - oldPercent) * cacheSize));
-      }
-      return new Adaptation(Adaptation.Type.DECREASE_WINDOW, (int) ((oldPercent - newPercent) * cacheSize));
+  public Adaptation adapt(double windowSize,
+      double probationSize, double protectedSize, boolean isFull) {
+    if (sample <= period) {
+      return Adaptation.hold();
     }
-    return Adaptation.HOLD;
+
+    long[] periodMisses = new long[101];
+    for (int i = 0; i < minis.length; i++) {
+      periodMisses[i] = minis[i].stats().missCount() - prevMisses[i];
+      prevMisses[i] = minis[i].stats().missCount();
+    }
+    int minIndex = 0;
+    for (int i = 1; i < periodMisses.length; i++) {
+      if (periodMisses[i] < periodMisses[minIndex]) {
+        minIndex = i;
+      }
+    }
+
+    sample = 0;
+    double oldPercent = prevPercent;
+    double newPercent = prevPercent = minIndex < 80 ? minIndex / 100.0 : 0.8;
+    return (newPercent > oldPercent)
+        ? Adaptation.increaseWindow((int) ((newPercent - oldPercent) * cacheSize))
+        : Adaptation.decreaseWindow((int) ((oldPercent - newPercent) * cacheSize));
   }
 
   static final class MiniSimSettings extends BasicSettings {
     public MiniSimSettings(Config config) {
       super(config);
     }
-
     public List<Double> percentMain() {
       return config().getDoubleList("hill-climber-window-tiny-lfu.percent-main");
     }
-
     public int minisimPeriod() {
       return config().getInt("hill-climber-window-tiny-lfu.minisim.period");
     }
   }
-
 }

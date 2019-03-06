@@ -1,3 +1,5 @@
+import org.gradle.plugins.ide.eclipse.model.SourceFolder
+
 apply from: "${rootDir}/gradle/jmh.gradle"
 apply from: "${projectDir}/testing.gradle"
 
@@ -21,13 +23,17 @@ idea.module {
   scopes.PROVIDED.plus += [ configurations.javaPoetCompile ]
 }
 
+eclipse.classpath.file.whenMerged {
+  entries.findAll { it instanceof SourceFolder && it.output == 'bin/codeGen' }*.output = 'bin/main'
+}
+
 plugins.withType(EclipsePlugin) {
   project.eclipse.classpath.plusConfigurations += [ configurations.javaPoetCompile ]
 }
 
 dependencies {
   compile libraries.checkerAnnotations
-  compile libraries.errorProneAnnotations
+  compile libraries.errorproneAnnotations
 
   testCompile libraries.ycsb
   testCompile libraries.guava
@@ -70,16 +76,15 @@ compileCodeGenJava {
 }
 
 jar.manifest {
-  name 'com.github.ben-manes.caffeine'
-  instruction 'Import-Package',
+  attributes 'Bundle-SymbolicName': 'com.github.ben-manes.caffeine'
+  attributes 'Import-Package':
     'sun.misc.*;resolution:=optional'
-  instruction 'Export-Package',
+  attributes 'Export-Package': [
     'com.github.benmanes.caffeine',
     'com.github.benmanes.caffeine.base',
     'com.github.benmanes.caffeine.cache',
-    'com.github.benmanes.caffeine.cache.stats'
-  instruction 'Automatic-Module-Name',
-    'com.github.benmanes.caffeine'
+    'com.github.benmanes.caffeine.cache.stats'].join(',')
+  attributes 'Automatic-Module-Name': 'com.github.benmanes.caffeine'
 }
 
 jar.dependsOn(compileCodeGenJava)
@@ -98,6 +103,7 @@ task generateLocalCaches(type: JavaExec) {
 
   outputs.upToDateWhen { !tasks.compileJavaPoetJava.didWork }
   outputs.dir "${buildDir}/generated-sources/"
+  outputs.cacheIf { true }
 }
 compileJava.dependsOn(generateLocalCaches)
 
@@ -109,6 +115,7 @@ task generateNodes(type: JavaExec) {
 
   outputs.upToDateWhen { !tasks.compileJavaPoetJava.didWork }
   outputs.dir "${buildDir}/generated-sources/"
+  outputs.cacheIf { true }
 }
 compileJava.dependsOn(generateNodes)
 

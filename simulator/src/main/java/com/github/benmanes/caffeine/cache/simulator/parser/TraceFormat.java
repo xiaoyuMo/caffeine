@@ -15,18 +15,24 @@
  */
 package com.github.benmanes.caffeine.cache.simulator.parser;
 
+import static java.util.Locale.US;
+
 import java.util.List;
 import java.util.function.Function;
+import java.util.stream.LongStream;
 
 import com.github.benmanes.caffeine.cache.simulator.parser.address.AddressTraceReader;
 import com.github.benmanes.caffeine.cache.simulator.parser.arc.ArcTraceReader;
 import com.github.benmanes.caffeine.cache.simulator.parser.cache2k.Cache2kTraceReader;
+import com.github.benmanes.caffeine.cache.simulator.parser.corda.CordaTraceReader;
 import com.github.benmanes.caffeine.cache.simulator.parser.gradle.GradleTraceReader;
 import com.github.benmanes.caffeine.cache.simulator.parser.lirs.LirsTraceReader;
 import com.github.benmanes.caffeine.cache.simulator.parser.scarab.ScarabTraceReader;
 import com.github.benmanes.caffeine.cache.simulator.parser.umass.network.YoutubeTraceReader;
 import com.github.benmanes.caffeine.cache.simulator.parser.umass.storage.StorageTraceReader;
 import com.github.benmanes.caffeine.cache.simulator.parser.wikipedia.WikipediaTraceReader;
+import com.google.common.base.Splitter;
+import com.google.common.collect.Iterables;
 
 /**
  * The trace file formats.
@@ -43,11 +49,12 @@ public enum TraceFormat {
   UMASS_YOUTUBE(YoutubeTraceReader::new),
   WIKIPEDIA(WikipediaTraceReader::new),
   CACHE2K(Cache2kTraceReader::new),
-  SCARAB(ScarabTraceReader::new);
+  SCARAB(ScarabTraceReader::new),
+  CORDA(CordaTraceReader::new);
 
-  private final Function<List<String>, TraceReader> factory;
+  private final Function<String, TraceReader> factory;
 
-  TraceFormat(Function<List<String>, TraceReader> factory) {
+  TraceFormat(Function<String, TraceReader> factory) {
     this.factory = factory;
   }
 
@@ -58,6 +65,20 @@ public enum TraceFormat {
    * @return a reader for streaming the events from the file
    */
   public TraceReader readFiles(List<String> filePaths) {
-    return factory.apply(filePaths);
+    return () -> {
+      LongStream events = LongStream.empty();
+      for (String path : filePaths) {
+        List<String> parts = Splitter.on(':').limit(2).splitToList(path);
+        TraceFormat format = (parts.size() == 1) ? this : named(parts.get(0));
+        LongStream next = format.factory.apply(Iterables.getLast(parts)).events();
+        events = LongStream.concat(events, next);
+      }
+      return events;
+    };
+  }
+
+  /** Returns the format based on its configuration name. */
+  public static TraceFormat named(String name) {
+    return TraceFormat.valueOf(name.replace('-', '_').toUpperCase(US));
   }
 }

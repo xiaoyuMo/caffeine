@@ -34,6 +34,7 @@ import java.util.Spliterator;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executor;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
@@ -79,7 +80,7 @@ final class UnboundedLocalCache<K, V> implements LocalCache<K, V> {
     return false;
   }
 
-  /* ---------------- Cache -------------- */
+  /* --------------- Cache --------------- */
 
   @Override
   public @Nullable V getIfPresent(Object key, boolean recordStats) {
@@ -175,7 +176,7 @@ final class UnboundedLocalCache<K, V> implements LocalCache<K, V> {
     return ticker;
   }
 
-  /* ---------------- JDK8+ Map extensions -------------- */
+  /* --------------- JDK8+ Map extensions --------------- */
 
   @Override
   public void forEach(BiConsumer<? super K, ? super V> action) {
@@ -257,8 +258,8 @@ final class UnboundedLocalCache<K, V> implements LocalCache<K, V> {
     V[] oldValue = (V[]) new Object[1];
     RemovalCause[] cause = new RemovalCause[1];
     V nv = data.computeIfPresent(key, (K k, V value) -> {
-      BiFunction<? super K, ? super V, ? extends V> function =
-          statsAware(remappingFunction, /* recordMiss */ false, /* recordLoad */ true);
+      BiFunction<? super K, ? super V, ? extends V> function = statsAware(remappingFunction,
+          /* recordMiss */ false, /* recordLoad */ true, /* recordLoadFailure */ true);
       V newValue = function.apply(k, value);
 
       cause[0] = (newValue == null) ? RemovalCause.EXPLICIT : RemovalCause.REPLACED;
@@ -276,9 +277,9 @@ final class UnboundedLocalCache<K, V> implements LocalCache<K, V> {
 
   @Override
   public V compute(K key, BiFunction<? super K, ? super V, ? extends V> remappingFunction,
-      boolean recordMiss, boolean recordLoad) {
+      boolean recordMiss, boolean recordLoad, boolean recordLoadFailure) {
     requireNonNull(remappingFunction);
-    return remap(key, statsAware(remappingFunction, recordMiss, recordLoad));
+    return remap(key, statsAware(remappingFunction, recordMiss, recordLoad, recordLoadFailure));
   }
 
   @Override
@@ -321,7 +322,7 @@ final class UnboundedLocalCache<K, V> implements LocalCache<K, V> {
     return nv;
   }
 
-  /* ---------------- Concurrent Map -------------- */
+  /* --------------- Concurrent Map --------------- */
 
   @Override
   public boolean isEmpty() {
@@ -762,9 +763,7 @@ final class UnboundedLocalCache<K, V> implements LocalCache<K, V> {
 
     @Override
     public Spliterator<Entry<K, V>> spliterator() {
-      return (cache.writer == CacheWriter.disabledWriter())
-          ? cache.data.entrySet().spliterator()
-          : new EntrySpliterator<>(cache);
+      return new EntrySpliterator<>(cache);
     }
   }
 
@@ -849,7 +848,7 @@ final class UnboundedLocalCache<K, V> implements LocalCache<K, V> {
     }
   }
 
-  /* ---------------- Manual Cache -------------- */
+  /* --------------- Manual Cache --------------- */
 
   static class UnboundedLocalManualCache<K, V> implements LocalManualCache<K, V>, Serializable {
     private static final long serialVersionUID = 1;
@@ -871,6 +870,7 @@ final class UnboundedLocalCache<K, V> implements LocalCache<K, V> {
       return (policy == null) ? (policy = new UnboundedPolicy<>(cache.isRecordingStats)) : policy;
     }
 
+    @SuppressWarnings("UnusedVariable")
     private void readObject(ObjectInputStream stream) throws InvalidObjectException {
       throw new InvalidObjectException("Proxy required");
     }
@@ -909,7 +909,7 @@ final class UnboundedLocalCache<K, V> implements LocalCache<K, V> {
     }
   }
 
-  /* ---------------- Loading Cache -------------- */
+  /* --------------- Loading Cache --------------- */
 
   static final class UnboundedLocalLoadingCache<K, V> extends UnboundedLocalManualCache<K, V>
       implements LocalLoadingCache<K, V> {
@@ -960,18 +960,20 @@ final class UnboundedLocalCache<K, V> implements LocalCache<K, V> {
       return proxy;
     }
 
+    @SuppressWarnings("UnusedVariable")
     private void readObject(ObjectInputStream stream) throws InvalidObjectException {
       throw new InvalidObjectException("Proxy required");
     }
   }
 
-  /* ---------------- Async Cache -------------- */
+  /* --------------- Async Cache --------------- */
 
   static final class UnboundedLocalAsyncCache<K, V> implements LocalAsyncCache<K, V>, Serializable {
     private static final long serialVersionUID = 1;
 
     final UnboundedLocalCache<K, CompletableFuture<V>> cache;
 
+    @Nullable ConcurrentMap<K, CompletableFuture<V>> mapView;
     @Nullable CacheView<K, V> cacheView;
     @Nullable Policy<K, V> policy;
 
@@ -987,6 +989,11 @@ final class UnboundedLocalCache<K, V> implements LocalCache<K, V> {
     }
 
     @Override
+    public ConcurrentMap<K, CompletableFuture<V>> asMap() {
+      return (mapView == null) ? (mapView = new AsyncAsMapView<>(this)) : mapView;
+    }
+
+    @Override
     public Cache<K, V> synchronous() {
       return (cacheView == null) ? (cacheView = new CacheView<>(this)) : cacheView;
     }
@@ -996,6 +1003,7 @@ final class UnboundedLocalCache<K, V> implements LocalCache<K, V> {
       return (policy == null) ? (policy = new UnboundedPolicy<>(cache.isRecordingStats)) : policy;
     }
 
+    @SuppressWarnings("UnusedVariable")
     private void readObject(ObjectInputStream stream) throws InvalidObjectException {
       throw new InvalidObjectException("Proxy required");
     }
@@ -1011,7 +1019,7 @@ final class UnboundedLocalCache<K, V> implements LocalCache<K, V> {
     }
   }
 
-  /* ---------------- Async Loading Cache -------------- */
+  /* --------------- Async Loading Cache --------------- */
 
   static final class UnboundedLocalAsyncLoadingCache<K, V>
       extends LocalAsyncLoadingCache<K, V> implements Serializable {
@@ -1019,6 +1027,7 @@ final class UnboundedLocalCache<K, V> implements LocalCache<K, V> {
 
     final UnboundedLocalCache<K, CompletableFuture<V>> cache;
 
+    @Nullable ConcurrentMap<K, CompletableFuture<V>> mapView;
     @Nullable Policy<K, V> policy;
 
     @SuppressWarnings("unchecked")
@@ -1034,10 +1043,16 @@ final class UnboundedLocalCache<K, V> implements LocalCache<K, V> {
     }
 
     @Override
+    public ConcurrentMap<K, CompletableFuture<V>> asMap() {
+      return (mapView == null) ? (mapView = new AsyncAsMapView<>(this)) : mapView;
+    }
+
+    @Override
     public Policy<K, V> policy() {
       return (policy == null) ? (policy = new UnboundedPolicy<>(cache.isRecordingStats)) : policy;
     }
 
+    @SuppressWarnings("UnusedVariable")
     private void readObject(ObjectInputStream stream) throws InvalidObjectException {
       throw new InvalidObjectException("Proxy required");
     }

@@ -19,14 +19,18 @@ import static com.github.benmanes.caffeine.cache.BLCHeader.DrainStatusRef.IDLE;
 import static com.github.benmanes.caffeine.cache.BLCHeader.DrainStatusRef.PROCESSING_TO_IDLE;
 import static com.github.benmanes.caffeine.cache.BLCHeader.DrainStatusRef.PROCESSING_TO_REQUIRED;
 import static com.github.benmanes.caffeine.cache.BLCHeader.DrainStatusRef.REQUIRED;
+import static com.github.benmanes.caffeine.cache.BoundedLocalCache.PERCENT_MAIN_PROTECTED;
 import static com.github.benmanes.caffeine.cache.testing.HasRemovalNotifications.hasRemovalNotifications;
 import static com.github.benmanes.caffeine.cache.testing.HasStats.hasEvictionCount;
 import static com.github.benmanes.caffeine.testing.Awaits.await;
 import static java.util.Arrays.asList;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
+import static org.hamcrest.Matchers.either;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.lessThan;
 import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.nullValue;
 import static org.mockito.ArgumentMatchers.any;
@@ -165,12 +169,12 @@ public final class BoundedLocalCacheTest {
     BoundedLocalCache<Integer, Integer> map = asBoundedLocalCache(cache);
 
     cache.put(1, 1);
-    map.lazySetEdenMaximum(0L);
-    map.lazySetWeightedSize(BoundedLocalCache.MAXIMUM_CAPACITY);
+    map.setWindowMaximum(0L);
+    map.setWeightedSize(BoundedLocalCache.MAXIMUM_CAPACITY);
     cache.put(2, 2);
 
     assertThat(map.size(), is(1));
-    assertThat(map.adjustedWeightedSize(), is(BoundedLocalCache.MAXIMUM_CAPACITY));
+    assertThat(Math.max(0, map.weightedSize()), is(BoundedLocalCache.MAXIMUM_CAPACITY));
   }
 
   @Test(dataProvider = "caches")
@@ -409,7 +413,7 @@ public final class BoundedLocalCacheTest {
   private static Node<Integer, Integer> firstBeforeAccess(
       BoundedLocalCache<Integer, Integer> localCache, CacheContext context) {
     return context.isZeroWeighted()
-        ? localCache.accessOrderEdenDeque().peek()
+        ? localCache.accessOrderWindowDeque().peek()
         : localCache.accessOrderProbationDeque().peek();
   }
 
@@ -421,8 +425,8 @@ public final class BoundedLocalCacheTest {
     cache.maintenance(/* ignored */ null);
 
     if (context.isZeroWeighted()) {
-      assertThat(cache.accessOrderEdenDeque().peekFirst(), is(not(first)));
-      assertThat(cache.accessOrderEdenDeque().peekLast(), is(first));
+      assertThat(cache.accessOrderWindowDeque().peekFirst(), is(not(first)));
+      assertThat(cache.accessOrderWindowDeque().peekLast(), is(first));
     } else {
       assertThat(cache.accessOrderProbationDeque().peekFirst(), is(not(first)));
       assertThat(cache.accessOrderProtectedDeque().peekLast(), is(first));
@@ -533,7 +537,7 @@ public final class BoundedLocalCacheTest {
     BoundedLocalCache<Integer, Integer> localCache = asBoundedLocalCache(cache);
     cache.put(1, 1);
 
-    int size = localCache.accessOrderEdenDeque().size()
+    int size = localCache.accessOrderWindowDeque().size()
         + localCache.accessOrderProbationDeque().size();
     assertThat(localCache.writeBuffer().size(), is(0));
     assertThat(size, is(1));
@@ -600,5 +604,79 @@ public final class BoundedLocalCacheTest {
       lock.unlock();
     }
     await().untilTrue(done);
+  }
+
+  @Test(dataProvider = "caches")
+  @CacheSpec(compute = Compute.SYNC, implementation = Implementation.Caffeine,
+      population = Population.FULL, maximumSize = Maximum.FULL,
+      weigher = {CacheWeigher.DEFAULT, CacheWeigher.TEN})
+  public void adapt_increaseWindow(Cache<Integer, Integer> cache, CacheContext context) {
+    BoundedLocalCache<Integer, Integer> localCache = prepareForAdaption(
+        cache, context, /* make frequency-bias */ false);
+
+    int sampleSize = localCache.frequencySketch().sampleSize;
+    long protectedSize = localCache.mainProtectedWeightedSize();
+    long protectedMaximum = localCache.mainProtectedMaximum();
+    long windowSize = localCache.windowWeightedSize();
+    long windowMaximum = localCache.windowMaximum();
+
+    adapt(cache, localCache, sampleSize);
+
+    assertThat(localCache.mainProtectedMaximum(),
+        is(either(lessThan(protectedMaximum)).or(is(0L))));
+    assertThat(localCache.mainProtectedWeightedSize(),
+        is(either(lessThan(protectedSize)).or(is(0L))));
+    assertThat(localCache.windowMaximum(), is(greaterThan(windowMaximum)));
+    assertThat(localCache.windowWeightedSize(), is(greaterThan(windowSize)));
+  }
+
+  @Test(dataProvider = "caches")
+  @CacheSpec(compute = Compute.SYNC, implementation = Implementation.Caffeine,
+      population = Population.FULL, maximumSize = Maximum.FULL,
+      weigher = {CacheWeigher.DEFAULT, CacheWeigher.TEN})
+  public void adapt_decreaseWindow(Cache<Integer, Integer> cache, CacheContext context) {
+    BoundedLocalCache<Integer, Integer> localCache = prepareForAdaption(
+        cache, context, /* make recency-bias */ true);
+
+    int sampleSize = localCache.frequencySketch().sampleSize;
+    long protectedSize = localCache.mainProtectedWeightedSize();
+    long protectedMaximum = localCache.mainProtectedMaximum();
+    long windowSize = localCache.windowWeightedSize();
+    long windowMaximum = localCache.windowMaximum();
+
+    adapt(cache, localCache, sampleSize);
+
+    assertThat(localCache.mainProtectedMaximum(), is(greaterThan(protectedMaximum)));
+    assertThat(localCache.mainProtectedWeightedSize(), is(greaterThan(protectedSize)));
+    assertThat(localCache.windowMaximum(), is(either(lessThan(windowMaximum)).or(is(0L))));
+    assertThat(localCache.windowWeightedSize(), is(either(lessThan(windowSize)).or(is(0L))));
+  }
+
+  private BoundedLocalCache<Integer, Integer> prepareForAdaption(
+      Cache<Integer, Integer> cache, CacheContext context, boolean recencyBias) {
+    BoundedLocalCache<Integer, Integer> localCache = asBoundedLocalCache(cache);
+
+    localCache.setStepSize((recencyBias ? 1 : -1) * Math.abs(localCache.stepSize()));
+    localCache.setWindowMaximum((long) (0.5 * context.maximumWeightOrSize()));
+    localCache.setMainProtectedMaximum((long)
+        (PERCENT_MAIN_PROTECTED * (context.maximumWeightOrSize() - localCache.windowMaximum())));
+
+    // Fill window and main spaces
+    cache.invalidateAll();
+    cache.asMap().putAll(context.original());
+    cache.asMap().keySet().stream().forEach(cache::getIfPresent);
+    cache.asMap().keySet().stream().forEach(cache::getIfPresent);
+    return localCache;
+  }
+
+  private void adapt(Cache<Integer, Integer> cache,
+      BoundedLocalCache<Integer, Integer> localCache, int sampleSize) {
+    localCache.setPreviousSampleHitRate(0.80);
+    localCache.setMissesInSample(sampleSize / 2);
+    localCache.setHitsInSample(sampleSize - localCache.missesInSample());
+    localCache.climb();
+
+    // Fill main protected space
+    cache.asMap().keySet().stream().forEach(cache::getIfPresent);
   }
 }

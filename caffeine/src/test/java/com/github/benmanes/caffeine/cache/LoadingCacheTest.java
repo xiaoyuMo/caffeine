@@ -79,7 +79,7 @@ import com.google.common.primitives.Ints;
 @Test(dataProviderClass = CacheProvider.class)
 public final class LoadingCacheTest {
 
-  /* ---------------- get -------------- */
+  /* --------------- get --------------- */
 
   @CacheSpec
   @CheckNoWriter
@@ -131,7 +131,7 @@ public final class LoadingCacheTest {
     assertThat(context, both(hasLoadSuccessCount(0)).and(hasLoadFailureCount(0)));
   }
 
-  /* ---------------- getAll -------------- */
+  /* --------------- getAll --------------- */
 
   @CheckNoWriter
   @CacheSpec(removalListener = { Listener.DEFAULT, Listener.REJECTING })
@@ -291,6 +291,21 @@ public final class LoadingCacheTest {
   @CheckNoWriter
   @Test(dataProvider = "caches")
   @CacheSpec(loader = { Loader.NEGATIVE, Loader.BULK_NEGATIVE },
+      population = { Population.SINGLETON, Population.PARTIAL },
+      removalListener = { Listener.DEFAULT, Listener.REJECTING })
+  public void getAllPresent_ordered_partial(
+      LoadingCache<Integer, Integer> cache, CacheContext context) {
+    List<Integer> keys = new ArrayList<>(context.original().keySet());
+    keys.addAll(context.absentKeys());
+    Collections.shuffle(keys);
+
+    List<Integer> result = new ArrayList<>(cache.getAll(keys).keySet());
+    assertThat(result, is(equalTo(keys)));
+  }
+
+  @CheckNoWriter
+  @Test(dataProvider = "caches")
+  @CacheSpec(loader = { Loader.NEGATIVE, Loader.BULK_NEGATIVE },
       population = { Population.SINGLETON, Population.PARTIAL, Population.FULL },
       removalListener = { Listener.DEFAULT, Listener.REJECTING })
   public void getAllPresent_ordered_present(
@@ -300,6 +315,20 @@ public final class LoadingCacheTest {
 
     List<Integer> result = new ArrayList<>(cache.getAll(keys).keySet());
     assertThat(result, is(equalTo(keys)));
+  }
+
+  @CheckNoWriter
+  @Test(dataProvider = "caches")
+  @CacheSpec(loader = Loader.BULK_NEGATIVE_EXCEEDS,
+      removalListener = { Listener.DEFAULT, Listener.REJECTING })
+  public void getAllPresent_ordered_exceeds(
+      LoadingCache<Integer, Integer> cache, CacheContext context) {
+    List<Integer> keys = new ArrayList<>(context.original().keySet());
+    keys.addAll(context.absentKeys());
+    Collections.shuffle(keys);
+
+    List<Integer> result = new ArrayList<>(cache.getAll(keys).keySet());
+    assertThat(result.subList(0, keys.size()), is(equalTo(keys)));
   }
 
   @Test(dataProvider = "caches")
@@ -326,7 +355,7 @@ public final class LoadingCacheTest {
     assertThat(result, is(equalTo(ImmutableMap.of(key, value))));
   }
 
-  /* ---------------- refresh -------------- */
+  /* --------------- refresh --------------- */
 
   @CheckNoWriter
   @CacheSpec(removalListener = { Listener.DEFAULT, Listener.REJECTING })
@@ -489,7 +518,7 @@ public final class LoadingCacheTest {
     await().until(() -> context, both(hasLoadSuccessCount(1)).and(hasLoadFailureCount(0)));
   }
 
-  /* ---------------- CacheLoader -------------- */
+  /* --------------- CacheLoader --------------- */
 
   @Test(expectedExceptions = UnsupportedOperationException.class)
   public void loadAll() throws Exception {

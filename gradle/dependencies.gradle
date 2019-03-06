@@ -21,36 +21,36 @@
  *     exclude group:  "org.unwanted'                // by artifact group
  *   }
  *
- * @see http://gradle.org/docs/current/javadoc/org/gradle/api/artifacts/dsl/DependencyHandler.html
+ * @see https://gradle.org/docs/current/javadoc/org/gradle/api/artifacts/dsl/DependencyHandler.html
  */
 ext {
   versions = [
-    akka: '2.5.17',
-    checkerFramework: '2.5.6',
+    akka: '2.5.21',
+    checkerFramework: '2.7.0',
     commonsCompress: '1.18',
     commonsLang3: '3.8.1',
     config: '1.3.3',
-    errorProne: '2.3.2',
-    errorProneJavac: '9+181-r4173-1',
+    errorprone: '2.3.3',
+    errorproneJavac: '9+181-r4173-1',
     fastutil: '8.2.2',
     flipTables: '1.0.2',
     guava: '27.0-jre',
     javapoet: '1.11.1',
     jcache: '1.1.0',
     jsr330: '1',
-    univocityParsers: '2.7.6',
-    ycsb: '0.13.0',
+    univocityParsers: '2.8.1',
+    ycsb: '0.15.0',
     xz: '1.8',
   ]
   testVersions = [
-    awaitility: '3.1.2',
-    easymock: '4.0.1',
+    awaitility: '3.1.6',
+    easymock: '4.0.2',
     hamcrest: '2.0.0.0',
     jcacheTck: '1.1.0',
     jctools: '2.1.2',
     junit: '4.12',
-    mockito: '2.23.0',
-    paxExam: '4.12.0',
+    mockito: '2.25.0',
+    paxExam: '4.13.1',
     testng: '6.14.3',
     truth: '0.24',
   ]
@@ -59,41 +59,40 @@ ext {
     collision: '0.3.3',
     commonsMath3: '3.6.1',
     concurrentlinkedhashmap: '1.4.2',
-    ehcache3: '3.6.1',
-    elasticSearch: '6.4.2',
-    expiringMap: '0.5.8',
-    jackrabbit: '1.9.9',
-    jamm: '0.3.2',
+    ehcache3: '3.7.0',
+    elasticSearch: '7.0.0-beta1',
+    expiringMap: '0.5.9',
+    jackrabbit: '1.10.1',
+    jamm: '0.3.3',
     javaObjectLayout: '0.9',
     jmh: '1.21',
     koloboke: '0.6.8',
     ohc: '0.6.1',
     slf4j: '1.7.25',
-    tcache: '1.0.5',
+    tcache: '2.0.1',
     stream: '2.9.6',
   ]
   pluginVersions = [
-    apt: '0.19',
-    buildscan: '1.16',
-    checkstyle: '8.14',
+    apt: '0.21',
+    bnd: '4.1.0',
+    buildscan: '2.2.1',
+    checkstyle: '8.18',
     coveralls: '2.8.2',
     coverity: '1.0.10',
-    errorProne: '0.6',
+    errorprone: '0.7.1',
     jacoco: '0.8.1',
-    jmh: '0.4.7',
+    jmh: '0.4.8',
     jmhReport: '0.9.0',
     nexus: '2.3.1',
-    pmd: '6.9.0',
+    nullaway: '0.6.6',
+    pmd: '6.12.0',
     semanticVersioning: '1.1.0',
-    shadow: '4.0.2',
-    sonarqube: '2.6.2',
-    spotbugs: '3.1.8',
-    spotbugsPlugin: '1.6.5',
+    shadow: '5.0.0',
+    sonarqube: '2.7.0.1622',
+    spotbugs: '3.1.12',
+    spotbugsPlugin: '1.6.10',
     stats: '0.2.2',
-    versions: '0.20.0',
-  ]
-  annotationProcessorVersions = [
-    nullaway: '0.6.0',
+    versions: '0.21.0',
   ]
 
   libraries = [
@@ -102,9 +101,9 @@ ext {
     commonsCompress: "org.apache.commons:commons-compress:${versions.commonsCompress}",
     commonsLang3: "org.apache.commons:commons-lang3:${versions.commonsLang3}",
     config: "com.typesafe:config:${versions.config}",
-    errorProneAnnotations: "com.google.errorprone:error_prone_annotations:${versions.errorProne}",
-    errorProneCore: "com.google.errorprone:error_prone_core:${versions.errorProne}",
-    errorProneJavac: "com.google.errorprone:javac:${versions.errorProneJavac}",
+    errorproneAnnotations: "com.google.errorprone:error_prone_annotations:${versions.errorprone}",
+    errorproneCore: "com.google.errorprone:error_prone_core:${versions.errorprone}",
+    errorproneJavac: "com.google.errorprone:javac:${versions.errorproneJavac}",
     fastutil: "it.unimi.dsi:fastutil:${versions.fastutil}",
     flipTables: "com.jakewharton.fliptables:fliptables:${versions.flipTables}",
     guava: "com.google.guava:guava:${versions.guava}",
@@ -112,7 +111,7 @@ ext {
     jcache: "javax.cache:cache-api:${versions.jcache}",
     jsr330: "javax.inject:javax.inject:${versions.jsr330}",
     univocityParsers: "com.univocity:univocity-parsers:${versions.univocityParsers}",
-    ycsb: "com.github.brianfrankcooper.ycsb:core:${versions.ycsb}",
+    ycsb: "com.github.brianfrankcooper.YCSB:core:${versions.ycsb}",    
     xz: "org.tukaani:xz:${versions.xz}",
   ]
   testLibraries = [
@@ -134,13 +133,13 @@ ext {
       exclude group: 'org.hamcrest'
     },
     osgiCompile: [
-      'org.apache.felix:org.apache.felix.framework:6.0.1',
+      'org.apache.felix:org.apache.felix.framework:6.0.2',
       "org.ops4j.pax.exam:pax-exam-junit4:${testVersions.paxExam}",
     ],
     osgiRuntime: [
       "org.ops4j.pax.exam:pax-exam-container-native:${testVersions.paxExam}",
       "org.ops4j.pax.exam:pax-exam-link-mvn:${testVersions.paxExam}",
-      "org.ops4j.pax.url:pax-url-aether:2.5.4",
+      "org.ops4j.pax.url:pax-url-aether:2.6.1",
     ],
     testng: [
       dependencies.create("org.testng:testng:${testVersions.testng}") {
@@ -177,27 +176,29 @@ ext {
   ]
   gradlePlugins = [
     apt: "net.ltgt.gradle:gradle-apt-plugin:${pluginVersions.apt}",
+    bnd: "biz.aQute.bnd:biz.aQute.bnd.gradle:${pluginVersions.bnd}",
     buildscan: "com.gradle:build-scan-plugin:${pluginVersions.buildscan}",
     checkstyle: dependencies.create("com.puppycrawl.tools:checkstyle:${pluginVersions.checkstyle}") {
       transitive = false
     },
     coveralls: "org.kt3k.gradle.plugin:coveralls-gradle-plugin:${pluginVersions.coveralls}",
     coverity: "gradle.plugin.com.github.mjdetullio.gradle:coverity-plugin:${pluginVersions.coverity}",
-    errorProne: "net.ltgt.errorprone:net.ltgt.errorprone.gradle.plugin:${pluginVersions.errorProne}",
+    errorprone: "net.ltgt.gradle:gradle-errorprone-plugin:${pluginVersions.errorprone}",
     jmh: [
       "me.champeau.gradle.jmh:me.champeau.gradle.jmh.gradle.plugin:${pluginVersions.jmh}",
       "org.openjdk.jmh:jmh-core:${benchmarkVersions.jmh}",
     ],
     jmhReport: "gradle.plugin.io.morethan.jmhreport:gradle-jmh-report:${pluginVersions.jmhReport}",
     nexus: "com.bmuschko:gradle-nexus-plugin:${pluginVersions.nexus}",
+    nullaway: "com.uber.nullaway:nullaway:${pluginVersions.nullaway}",
     semanticVersioning: "io.ehdev:gradle-semantic-versioning:${pluginVersions.semanticVersioning}",
     shadow: "com.github.jengelman.gradle.plugins:shadow:${pluginVersions.shadow}",
     sonarqube: "org.sonarsource.scanner.gradle:sonarqube-gradle-plugin:${pluginVersions.sonarqube}",
-    spotbugs: "gradle.plugin.com.github.spotbugs:spotbugs-gradle-plugin:${pluginVersions.spotbugsPlugin}",
+    spotbugs: [
+      "gradle.plugin.com.github.spotbugs:spotbugs-gradle-plugin:${pluginVersions.spotbugsPlugin}",
+      libraries.guava // https://github.com/spotbugs/spotbugs-gradle-plugin/issues/119
+    ],
     stats: "org.kordamp.gradle:stats-gradle-plugin:${pluginVersions.stats}",
     versions: "com.github.ben-manes:gradle-versions-plugin:${pluginVersions.versions}",
-  ]
-  annotationProcessors = [
-    nullaway: "com.uber.nullaway:nullaway:${annotationProcessorVersions.nullaway}",
   ]
 }
